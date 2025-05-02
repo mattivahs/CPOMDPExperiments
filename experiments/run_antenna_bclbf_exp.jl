@@ -5,18 +5,18 @@ using ProgressMeter
 using Distributed
 using Random
 
-nsims = 1
-run = [true, true, true] #(pomcpow, pomcp, pft-dpw)
+nsims = 100
+run = [false, false, true] #(pomcpow, pomcp, pft-dpw)
 
-cpomdp = SoftConstraintPOMDPWrapper(CLightDarkNew(cost_budget=0.1);λ=[1.])
+cpomdp = SoftConstraintPOMDPWrapper(CLightDark2D();λ=[1.])
 
 # global parameters
-tree_queries = Int(1e5)
-pft_tree_queries=Int(1e4)
+tree_queries = Int(1e3)
+pft_tree_queries=Int(1e3)
 k_observation = 5.
 alpha_observation = 1/15
 enable_action_pw = false
-max_depth = 10
+max_depth = 20
 c = 90.0
 nu = 0.0
 asched = 0.5
@@ -24,7 +24,6 @@ update_filter_size = Int(1e4)
 pf_filter_size = 10
 
 if run[1] # POMCPOW
-
     kwargs = Dict(
         :tree_queries=>tree_queries, 
         :k_observation => k_observation, # 0.1,
@@ -34,43 +33,23 @@ if run[1] # POMCPOW
         :max_depth => max_depth,
         :criterion=>CPOMDPExperiments.CPOMCPOW.MaxCUCB(c, nu), 
         :alpha_schedule => CPOMDPExperiments.CPOMCPOW.ConstantAlphaSchedule(asched),
-        :estimate_value=>zeroV_trueC,
     )
-    exp1 = LightExperimentResults(nsims)
+    # exp1 = LightExperimentResults(nsims)
+    exp = []
+    reached = []
+    avoided = []
     @showprogress 1 @distributed for i = 1:nsims
         Random.seed!(i)
         solver = CPOMDPExperiments.CPOMCPOWSolver(;kwargs..., rng = MersenneTwister(i))
         updater(planner) = CPOMDPExperiments.CPOMCPOW.CPOMCPOWBudgetUpdateWrapper(
             CPOMDPExperiments.ParticleFilters.BootstrapFilter(cpomdp, update_filter_size, solver.rng), 
             planner)
-        exp1[i] = run_cpomdp_simulation(cpomdp, solver, updater;track_history=false)
+        exp1 = run_cpomdp_simulation(cpomdp, solver, updater;track_history=true)
+        push!(reached, sqrt((exp1[1][end][:s].x - 1.8)^2 + (exp1[1][end][:s].y)^2) < 0.2)
+        push!(avoided, sum([(exp1[1][k][:s].x >= 1 && exp1[1][k][:s].y>=0.3) || (exp1[1][k][:s].x >= 1 && exp1[1][k][:s].y<=-0.3) for k=1:length(exp1[1])]) < 1)
+        println("R ", reached)
+        println("A ", avoided)
     end
-    print_and_save(exp1,"results/lightdark_pomcpow_$(nsims)sims.jld2")
-end
-
-if run[2] # POMCP
-    kwargs = Dict(
-        :tree_queries=>pft_tree_queries, # POMCP trash anyway, keep small
-        :k_observation => k_observation, # 0.1,
-        :alpha_observation => alpha_observation, #0.5,
-        :enable_action_pw => false,
-        :check_repeat_obs => false,
-        :max_depth => max_depth,
-        :c=>c,
-        :nu=>nu, 
-        :alpha_schedule => CPOMDPExperiments.CPOMCP.ConstantAlphaSchedule(asched),
-        :estimate_value=>zeroV_trueC,
-    )
-    exp2 = LightExperimentResults(nsims)
-    @showprogress 1 @distributed for i = 1:nsims
-        Random.seed!(i)
-        solver = CPOMDPExperiments.CPOMCPDPWSolver(;kwargs..., rng = MersenneTwister(i))
-        updater(planner) = CPOMDPExperiments.CPOMCP.CPOMCPBudgetUpdateWrapper(
-            CPOMDPExperiments.ParticleFilters.BootstrapFilter(cpomdp, update_filter_size, solver.rng), 
-            planner)
-        exp2[i] = run_cpomdp_simulation(cpomdp, solver, updater;track_history=false)
-    end
-    print_and_save(exp2,"results/lightdark_pomcpdpw_$(nsims)sims.jld2")
 end
 
 if run[3] # PFT
@@ -84,9 +63,9 @@ if run[3] # PFT
         :exploration_constant => c,
         :nu => nu, 
         :alpha_schedule => CPOMDPExperiments.CMCTS.ConstantAlphaSchedule(asched),
-        :estimate_value=>CPOMDPExperiments.heuristicV,
     )
-    exp3 = LightExperimentResults(nsims)
+    reached2 = []
+    avoided2 = []
     @showprogress 1 @distributed for i = 1:nsims
         Random.seed!(i)
         rng = MersenneTwister(i)
@@ -96,8 +75,11 @@ if run[3] # PFT
             up)
         updater(planner) = CPOMDPExperiments.CMCTS.CMCTSBudgetUpdateWrapper(
             CPOMDPExperiments.ParticleFilters.BootstrapFilter(cpomdp, update_filter_size, rng), 
-            planner)
-        exp3[i] = run_cpomdp_simulation(cpomdp, solver, updater;track_history=false)
+            planner) 
+        exp3 = run_cpomdp_simulation(cpomdp, solver, updater;track_history=true)
+        push!(reached2, sqrt((exp3[1][end][:s].x - 1.8)^2 + (exp3[1][end][:s].y)^2) < 0.2)
+        push!(avoided2, sum([(exp3[1][k][:s].x >= 1 && exp3[1][k][:s].y>=0.3) || (exp3[1][k][:s].x >= 1 && exp3[1][k][:s].y<=-0.3) for k=1:length(exp3[1])]) < 1)
+        println("R ", reached2)
+        println("A ", avoided2)
     end
-    print_and_save(exp3,"results/lightdark_pft_$(nsims)sims.jld2")
 end

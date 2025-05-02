@@ -87,6 +87,25 @@ function run_cpomdp_simulation(p::SoftConstraintPOMDPWrapper, solver::Solver,
     hist, R, C, RC
 end
 
+# function run_cpomdp_simulation_BCLBF(p::SoftConstraintPOMDPWrapper, solver::Solver, 
+#     bu::Union{Nothing,Updater,Function}=nothing, max_steps=50;track_history::Bool=true)
+#     planner = solve(solver, p.cpomdp)
+#     if bu===nothing
+#         bu = POMDPs.updater(planner)
+#     elseif bu isa Function
+#         bu = bu(planner)
+#     end
+#     reached = false
+#     avoided = true
+#     for (s, a, o, r, c, sp, b, ai) in stepthrough(p.cpomdp, planner, bu, "s,a,o,r,c,sp,b,action_info", max_steps=max_steps)
+        
+#         # track fictitions augmented reward
+#         reached = reached || (s.status == -1 && r > 0)
+#         avoided = avoided && s.y < p.max_y
+#     end
+#     reached, avoided
+# end
+
 function run_pomdp_simulation(p::SoftConstraintPOMDPWrapper, solver::Solver, 
     bu::Union{Nothing,Function,Updater}=nothing, max_steps=100;track_history::Bool=true)
 

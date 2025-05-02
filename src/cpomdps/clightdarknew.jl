@@ -13,16 +13,30 @@ mutable struct LightDarkNew{F<:Function} <: POMDPs.POMDP{LightDark1DState,Int,Fl
     sigma::F
 end
 
-default_sigma(x::Float64) = abs(x - 10)/sqrt(2) + 1e-2
+default_sigma(x::Float64) = abs(x - 10)/sqrt(2) + 1e-4
 
-LightDarkNew() = LightDarkNew(0.95, 100.0, -100.0, 1.0, 1.0, default_sigma)
+# ADAPT FOR UNIFORM SAMPLING
+
+struct LDUniformStateDist1D
+    min::Float64
+    max::Float64
+end
+
+import Base: rand
+sampletype(::Type{LDUniformStateDist1D}) = LightDark1DState
+rand(rng::AbstractRNG, d::LDUniformStateDist1D) = LightDark1DState(0, d.min + rand(rng)*(d.max - d.min))
+
+LightDarkNew() = LightDarkNew(0.95, 100.0, -100.0, 0.1, 1.0, default_sigma)
 POMDPs.discount(p::LightDarkNew) = p.discount_factor
 POMDPs.isterminal(::LightDarkNew, act::Int64) = act == 0
 POMDPs.isterminal(::LightDarkNew, s::LightDark1DState) = s.status < 0
 POMDPs.actions(::LightDarkNew) = [-10, -5, -1, 0, 1, 5, 10]
-POMDPs.initialstate(::LightDarkNew) = POMDPModels.LDNormalStateDist(2, 2)
+# POMDPs.initialstate(::LightDarkNew) = POMDPModels.LDNormalStateDist(0, 4)
+POMDPs.initialstate(::LightDarkNew) = LDUniformStateDist1D(-10., 10.)
 POMDPs.initialobs(m::LightDarkNew, s) = POMDPs.observation(m, s)
 POMDPs.observation(p::LightDarkNew, sp::LightDark1DState) = Normal(sp.y, p.sigma(sp.y))
+
+
 
 function POMDPs.transition(p::LightDarkNew, s::LightDark1DState, a::Int)
     if a == 0
@@ -36,7 +50,7 @@ function POMDPs.reward(p::LightDarkNew, s::LightDark1DState, a::Int)
     if s.status < 0
         return 0.0
     elseif a == 0
-        if abs(s.y) < 1
+        if abs(s.y) < 1.0
             return p.correct_r
         else
             return p.incorrect_r
@@ -61,7 +75,7 @@ end
 
 function CLightDarkNew(;pomdp::P=LightDarkNew(),
     cost_budget::Float64=0.5,
-    max_y::Float64=12.,
+    max_y::Float64=10.,
     ) where {P<:LightDarkNew}
     return CLightDarkNew{P, statetype(pomdp), actiontype(pomdp), obstype(pomdp)}(pomdp,cost_budget,max_y)
 end

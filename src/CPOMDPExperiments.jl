@@ -35,6 +35,11 @@ export CLightDark1D
 include("cpomdps/clightdark.jl")
 export LightDarkNew, CLightDarkNew, zeroV_trueC
 include("cpomdps/clightdarknew.jl")
+export CCAS
+include("cpomdps/CCAS.jl")
+
+export LightDark2D, CLightDark2D
+include("cpomdps/clightdark2D.jl")
 
 using RockSample
 export RockSampleCPOMDP
@@ -65,6 +70,7 @@ export
     QMDP_V,
     LambdaExperiments,
     save_le, load_le,
+    initialstate,
     SearchProgress
 include("utils.jl") 
 

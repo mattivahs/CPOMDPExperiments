@@ -221,6 +221,88 @@ function plot_lightdark_beliefs(hist::Vector{NamedTuple},saveloc::Union{String,N
     end
 end
 
+function plot_lightdark_beliefs_2d(hist::Vector{NamedTuple},saveloc::Union{String,Nothing}=nothing )
+    states = [h[:s] for h in hist]
+    beliefs = [h[:b] for h in hist]
+
+    xpts = []
+    ypts = []
+    max_particles = 100
+    for i=1:5:length(beliefs) 
+        count = 0
+        for s in beliefs[i].particles
+            push!(xpts, s.x)
+            push!(ypts, s.y)
+            count += 1
+            if count > max_particles
+                break
+            end
+        end
+    end
+
+    scatter(xpts, ypts)
+    scatter!([s.x for s in states], [s.y for s in states])
+    if !(saveloc == nothing)
+        savefig(saveloc)
+    end
+end
+
+function animate_lightdark_beliefs_2d(hist::Vector{NamedTuple})
+    states = [h[:s] for h in hist]
+    beliefs = [h[:b] for h in hist]
+
+    max_particles = 1000
+    anim = @animate for i in 1:length(beliefs)
+        xpts = []
+        ypts = []
+        count = 0
+        for s in beliefs[i].particles
+            push!(xpts, s.x)
+            push!(ypts, s.y)
+            count += 1
+            if count > max_particles
+                break
+            end
+        end
+
+        scatter(xpts, ypts, label="Particles", xlim=(-2, 2), ylim=(-2, 2), alpha=0.5)
+        scatter!([s.x for s in states[1:i]], [s.y for s in states[1:i]], label="States")
+    end
+
+    gif(anim, fps=10)
+    
+end
+
+function animate_CCAS(hist::Vector{NamedTuple}, saveloc::Union{String,Nothing}=nothing)
+    states = [h[:s] for h in hist]
+    beliefs = [h[:b] for h in hist]
+
+    max_particles = 100
+    anim = @animate for i in 1:length(beliefs)
+        xpts = []
+        ypts = []
+        count = 0
+        for s in beliefs[i].particles
+            push!(xpts, s[end])  # Assuming s is a vector with x as the first element
+            push!(ypts, s[1])  # Assuming s is a vector with y as the second element
+            count += 1
+            if count > max_particles
+                break
+            end
+        end
+
+        scatter(xpts, ypts, label="Particles", xlim=(0, 100), ylim=(-300, 300), alpha=0.5, xflip=true)
+        scatter!([s[end] for s in states[1:i]], [s[1] for s in states[1:i]], label="States", xflip=true)
+    end
+
+    if !(saveloc == nothing)
+        gif(anim, saveloc, fps=10)
+    else
+        gif(anim, fps=10)
+    end
+end
+
+
 zero_V(p::POMDP, args...) = 0.
 zero_V(p::CPOMDP, args...) = (0.0, zeros(Float64, n_costs(p)))
 zero_V(p::MDP, args...) = 0.
